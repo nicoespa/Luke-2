@@ -96,12 +96,17 @@ class BlindVisionApp {
                 const transcript = lastResult[0].transcript.trim();
                 console.log('User said:', transcript);
                 
-                // Only process if it's meaningful speech (more than 2 words or contains question words)
-                const questionWords = ['where', 'what', 'how', 'can', 'do', 'is', 'find', 'see', 'help'];
+                // Only process if it's meaningful speech (more than 3 words or contains question words)
+                const questionWords = ['where', 'what', 'how', 'can', 'do', 'is', 'find', 'see', 'help', 'color', 'glasses', 'backpack', 'bag'];
                 const words = transcript.toLowerCase().split(' ');
                 const hasQuestionWord = questionWords.some(q => words.includes(q));
                 
-                if (words.length > 2 || hasQuestionWord) {
+                // Filter out fragments and echoes
+                const isEcho = transcript.toLowerCase().includes('the person on the left') || 
+                               transcript.toLowerCase().includes('wearing glasses and') ||
+                               transcript.toLowerCase().includes('room with');
+                
+                if (!isEcho && (words.length > 3 || (hasQuestionWord && words.length > 1))) {
                     // Stop listening while processing
                     this.recognition.stop();
                     this.handleVoiceCommand(transcript);
@@ -131,7 +136,7 @@ class BlindVisionApp {
             this.updateStatus('Ready', 'ready');
             
             // Restart listening automatically
-            if (this.continuousListening) {
+            if (this.continuousListening && !this.isPlaying) {
                 setTimeout(() => {
                     this.startContinuousListening();
                 }, 1000);
@@ -384,7 +389,7 @@ class BlindVisionApp {
                     console.log('Restarting speech recognition after speaking');
                     setTimeout(() => {
                         this.startContinuousListening();
-                    }, 500);
+                    }, 1500); // Increased delay to ensure audio is truly done
                 }
                 
                 // Process queued speech
@@ -471,7 +476,7 @@ class BlindVisionApp {
                     console.log('Restarting speech recognition after browser speech');
                     setTimeout(() => {
                         this.startContinuousListening();
-                    }, 500);
+                    }, 1500); // Increased delay to ensure audio is truly done
                 }
                 
                 // Process queued speech
@@ -644,6 +649,12 @@ Describe in English with clear, direct language suitable for someone who cannot 
         if (lowerCommand.includes('stop') || lowerCommand.includes('quiet')) {
             this.stopAllAudio();
             return;
+        }
+        
+        // Quick answers for common questions
+        if (lowerCommand.includes('where') && (lowerCommand.includes('glasses') || lowerCommand.includes('sunglasses'))) {
+            // Focus on finding glasses, not describing the scene
+            command = 'Where are my glasses or sunglasses? Look for them specifically.';
         }
         
         // Always capture a fresh image before answering
