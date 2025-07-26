@@ -810,7 +810,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are a visual assistant for a blind person. Answer their specific question about what you see in the image. Be direct and helpful. If they ask about colors, describe the colors. If they ask about objects, describe those objects. Always answer exactly what they ask about, not just give a general description.'
+                            content: 'You are a helpful assistant for a blind person. Answer ANY question they ask - whether it\'s about what you see in the image, general knowledge, advice, or anything else. Be conversational and helpful. If they ask about the image, describe what\'s relevant to their question. If they ask about something else, answer that too. You\'re their general-purpose assistant, not limited to just describing images.'
                         },
                         {
                             role: 'user',
@@ -819,7 +819,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
                                     type: 'text',
                                     text: `The user asks: "${question}"
 
-Please answer their question based on what you see in the image. If the question is about something not visible in the image, let them know politely.`
+Please answer their question. If it\'s about the image, describe what\'s relevant. If it\'s a general question, answer it helpfully. Be their friendly assistant for any type of question.`
                                 },
                                 {
                                     type: 'image_url',
