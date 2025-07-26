@@ -349,7 +349,9 @@ class BlindVisionApp {
         }
         
         // Clear any ongoing audio context
+        // @ts-ignore - audioContext might be set by other scripts
         if (window.audioContext) {
+            // @ts-ignore
             window.audioContext.close();
         }
         
@@ -683,8 +685,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
             this.liveInterval = null;
         }
     }
-}
-
+    
     startListening() {
         if (!this.recognition) {
             this.speak('Speech recognition not available in your browser.');
