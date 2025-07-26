@@ -1,14 +1,22 @@
 // Environment variables loader
-// In production, these will be replaced by Vercel during build
 window.ENV = {
-    OPENAI_API_KEY: '__OPENAI_API_KEY__',
-    ELEVENLABS_API_KEY: '__ELEVENLABS_API_KEY__'
+    OPENAI_API_KEY: '',
+    ELEVENLABS_API_KEY: ''
 };
 
-// In development, try to load from .env file
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    async function loadEnv() {
-        try {
+// Load environment variables
+async function loadEnv() {
+    try {
+        // In production, load from API endpoint
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            const response = await fetch('/api/config');
+            if (response.ok) {
+                const config = await response.json();
+                window.ENV = config;
+                console.log('Environment variables loaded from API');
+            }
+        } else {
+            // In development, try to load from .env file
             const response = await fetch('/.env');
             if (response.ok) {
                 const envText = await response.text();
@@ -23,10 +31,11 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
                 
                 console.log('Development environment variables loaded');
             }
-        } catch (error) {
-            console.log('Could not load .env file, using defaults');
         }
+    } catch (error) {
+        console.log('Could not load environment variables:', error);
     }
-    
-    loadEnv();
-} 
+}
+
+// Load environment variables when page loads
+loadEnv(); 

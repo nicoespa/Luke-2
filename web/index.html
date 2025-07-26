@@ -74,6 +74,16 @@
     </div>
     
     <script src="env-loader.js"></script>
-    <script src="app.js"></script>
+    <script>
+        // Wait for environment variables to load before starting the app
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Give env-loader time to fetch the config
+            setTimeout(() => {
+                const script = document.createElement('script');
+                script.src = 'app.js';
+                document.body.appendChild(script);
+            }, 500);
+        });
+    </script>
 </body>
 </html> 
