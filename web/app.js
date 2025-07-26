@@ -114,7 +114,10 @@ class BlindVisionApp {
             this.isListening = false;
             
             if (event.error === 'no-speech') {
-                this.speak('I didn\'t hear anything. Please try again.');
+                // Don't announce if already playing audio
+                if (!this.isPlaying) {
+                    this.speak('I didn\'t hear anything. Please try again.');
+                }
             } else if (event.error === 'network') {
                 this.speak('Network error. Please check your connection.');
             }
@@ -595,8 +598,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
         // Clear speech queue to prevent overlapping
         this.speechQueue = [];
         
-        // Capture current frame for context
-        this.lastCapturedImage = this.captureFrame();
+        // Don't capture image here - will capture when user asks question
         
         // Start recognition immediately without announcing
         try {
@@ -622,17 +624,12 @@ Describe in English with clear, direct language suitable for someone who cannot 
             return;
         }
         
-        // For other questions, use OpenAI to understand and respond
+        // Always capture a fresh image before answering
+        this.lastCapturedImage = this.captureFrame();
         if (this.lastCapturedImage) {
             await this.askAboutScene(command);
         } else {
-            // Capture a frame first
-            this.lastCapturedImage = this.captureFrame();
-            if (this.lastCapturedImage) {
-                await this.askAboutScene(command);
-            } else {
-                this.speak('Unable to capture image. Please make sure the camera is active.');
-            }
+            this.speak('Unable to capture image. Please make sure the camera is active.');
         }
     }
     
