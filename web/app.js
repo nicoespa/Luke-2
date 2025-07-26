@@ -14,6 +14,10 @@ class BlindVisionApp {
         this.currentAudio = null;
         this.isPlaying = false;
         
+        // Analysis management
+        this.isAnalyzing = false;
+        this.analysisTimeout = null;
+        
         // API Keys - Load from ENV, localStorage, or fallback
         this.apiKey = (window.ENV && window.ENV.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== '__OPENAI_API_KEY__') ? 
                       window.ENV.OPENAI_API_KEY : 
@@ -144,7 +148,7 @@ class BlindVisionApp {
             // Then analyze every 3 seconds
             this.liveInterval = setInterval(() => {
                 this.analyzeLiveFrame();
-            }, 3000);
+            }, 5000); // Increased to 5 seconds to allow time for speech
         } else {
             console.log('Live mode deactivated');
             this.speak('Live mode deactivated. Tap to resume.');
@@ -443,11 +447,19 @@ Describe in English with clear, direct language suitable for someone who cannot 
     }
 
     async analyzeFrame() {
+        // Prevent multiple simultaneous analyses
+        if (this.isAnalyzing || this.isPlaying) {
+            console.log('Analysis or audio already in progress, skipping');
+            return;
+        }
+        
         if (!this.stream) {
             console.log('No camera stream available');
             this.speak('Camera not available. Please check camera permissions.');
             return;
         }
+        
+        this.isAnalyzing = true;
         
         try {
             console.log('Analyzing frame...');
@@ -478,6 +490,8 @@ Describe in English with clear, direct language suitable for someone who cannot 
             console.error('Analysis error:', error);
             this.updateStatus('Analysis failed', 'error');
             this.speak('Analysis failed. Please try again.');
+        } finally {
+            this.isAnalyzing = false;
         }
     }
 
@@ -500,7 +514,8 @@ Describe in English with clear, direct language suitable for someone who cannot 
     }
 
     analyzeLiveFrame() {
-        if (!this.liveMode || this.isPlaying) {
+        if (!this.liveMode || this.isPlaying || this.isAnalyzing) {
+            console.log('Skipping live frame analysis - playing:', this.isPlaying, 'analyzing:', this.isAnalyzing);
             return;
         }
         
