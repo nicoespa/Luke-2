@@ -198,10 +198,23 @@ class BlindVisionApp {
     handleTouchControl() {
         console.log('Touch/click detected');
         
-        // Touch only stops audio - nothing else
+        // Stop audio if playing
         if (this.isPlaying) {
             console.log('Stopping current speech');
             this.stopAllAudio();
+        }
+        
+        // Also stop listening to prevent echo
+        if (this.isListening && this.recognition) {
+            console.log('Stopping speech recognition to prevent echo');
+            this.continuousListening = false;
+            this.recognition.stop();
+            
+            // Resume listening after a delay
+            setTimeout(() => {
+                this.continuousListening = true;
+                this.startContinuousListening();
+            }, 2000);
         }
     }
 
