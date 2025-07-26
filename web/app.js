@@ -20,6 +20,7 @@ class BlindVisionApp {
         this.isListening = false;
         this.conversationMode = false;
         this.lastCapturedImage = null;
+        this.continuousListening = true;
         
         // Initialize speech recognition
         this.initializeSpeechRecognition();
@@ -55,12 +56,13 @@ class BlindVisionApp {
         document.addEventListener('touchstart', this.handleTouchControl.bind(this));
         document.addEventListener('click', this.handleTouchControl.bind(this));
         
-        // Keyboard shortcuts for accessibility (desktop only)
-        if (!('ontouchstart' in window)) {
-            document.addEventListener('keydown', this.handleKeyPress.bind(this));
-        }
         
         console.log('Elements initialized');
+        
+        // Start continuous listening after a delay
+        setTimeout(() => {
+            this.startContinuousListening();
+        }, 3000);
     }
 
     bindEvents() {
@@ -77,20 +79,34 @@ class BlindVisionApp {
         this.recognition = new SpeechRecognition();
         
         // Configure recognition
-        this.recognition.continuous = false;
-        this.recognition.interimResults = false;
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
         this.recognition.lang = 'en-US';
         
         this.recognition.onstart = () => {
             console.log('Speech recognition started');
             this.isListening = true;
-            this.updateStatus('Listening...', 'listening');
+            this.updateStatus('Ready', 'ready');
         };
         
         this.recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            console.log('User said:', transcript);
-            this.handleVoiceCommand(transcript);
+            const lastResult = event.results[event.results.length - 1];
+            
+            if (lastResult.isFinal) {
+                const transcript = lastResult[0].transcript.trim();
+                console.log('User said:', transcript);
+                
+                // Only process if it's meaningful speech (more than 2 words or contains question words)
+                const questionWords = ['where', 'what', 'how', 'can', 'do', 'is', 'find', 'see', 'help'];
+                const words = transcript.toLowerCase().split(' ');
+                const hasQuestionWord = questionWords.some(q => words.includes(q));
+                
+                if (words.length > 2 || hasQuestionWord) {
+                    // Stop listening while processing
+                    this.recognition.stop();
+                    this.handleVoiceCommand(transcript);
+                }
+            }
         };
         
         this.recognition.onerror = (event) => {
@@ -110,6 +126,13 @@ class BlindVisionApp {
             console.log('Speech recognition ended');
             this.isListening = false;
             this.updateStatus('Ready', 'ready');
+            
+            // Restart listening automatically
+            if (this.continuousListening) {
+                setTimeout(() => {
+                    this.startContinuousListening();
+                }, 1000);
+            }
         };
     }
 
@@ -182,17 +205,11 @@ class BlindVisionApp {
         }
     }
 
-    handleKeyPress(e) {
-        if (e.key === 'v' || e.key === 'V') { // V for voice questions
-            e.preventDefault();
-            this.startListening();
-        }
-    }
 
 
     autoStart() {
         console.log('Auto-starting app for blind users...');
-        this.speak('BlindVision Assistant ready. Press V to ask me questions.');
+        this.speak('BlindVision Assistant ready. Just speak to ask me questions.');
         // Delay camera start to avoid overlapping speech
         setTimeout(() => {
             this.startCamera();
@@ -534,6 +551,32 @@ Describe in English with clear, direct language suitable for someone who cannot 
     }
 
     
+    startContinuousListening() {
+        if (!this.recognition) {
+            console.log('Speech recognition not available');
+            return;
+        }
+        
+        if (this.isListening) {
+            console.log('Already listening');
+            return;
+        }
+        
+        console.log('Starting continuous listening...');
+        
+        try {
+            this.recognition.start();
+            this.isListening = true;
+            console.log('Continuous listening started');
+        } catch (error) {
+            console.error('Failed to start recognition:', error);
+            // Retry after a delay
+            setTimeout(() => {
+                this.startContinuousListening();
+            }, 2000);
+        }
+    }
+    
     startListening() {
         if (!this.recognition) {
             this.speak('Speech recognition not available in your browser.');
@@ -555,18 +598,12 @@ Describe in English with clear, direct language suitable for someone who cannot 
         // Capture current frame for context
         this.lastCapturedImage = this.captureFrame();
         
-        // Play a sound or speak to indicate listening
-        this.speak('I\'m listening...');
-        
-        // Start recognition after a short delay
-        setTimeout(() => {
-            try {
-                this.recognition.start();
-            } catch (error) {
-                console.error('Failed to start recognition:', error);
-                this.speak('Failed to start listening. Please try again.');
-            }
-        }, 1000);
+        // Start recognition immediately without announcing
+        try {
+            this.recognition.start();
+        } catch (error) {
+            console.error('Failed to start recognition:', error);
+        }
     }
     
     async handleVoiceCommand(command) {
@@ -576,7 +613,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
         const lowerCommand = command.toLowerCase();
         
         if (lowerCommand.includes('help')) {
-            this.speak('I can help you find things. Ask me: Where is my backpack? Do you see a bag? What\'s in front of me? Or any other question!');
+            this.speak('I can help you find things. Just ask: Where is my backpack? Do you see a bag? What\'s in front of me?');
             return;
         }
         
