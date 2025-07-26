@@ -20,6 +20,7 @@ class BlindVisionApp {
         
         // Mode announcement tracking
         this.hasAnnouncedMode = false;
+        this.wasLiveMode = false;
         
         // Voice interaction
         this.recognition = null;
@@ -114,6 +115,16 @@ class BlindVisionApp {
             console.log('Speech recognition ended');
             this.isListening = false;
             this.updateStatus('Ready', 'ready');
+            
+            // Resume live mode if it was active before
+            if (this.wasLiveMode) {
+                setTimeout(() => {
+                    this.liveMode = true;
+                    this.liveInterval = setInterval(() => {
+                        this.analyzeLiveFrame();
+                    }, 5000);
+                }, 2000); // Wait 2 seconds before resuming
+            }
         };
     }
 
@@ -416,8 +427,13 @@ class BlindVisionApp {
                 URL.revokeObjectURL(audioUrl);
                 
                 // Process queued speech
-                if (this.speechQueue.length > 0) {
+                if (this.speechQueue.length > 0 && !this.isListening) {
                     const nextText = this.speechQueue.shift();
+                    // Clear remaining queue if too many
+                    if (this.speechQueue.length > 2) {
+                        console.log('Clearing speech queue, too many items:', this.speechQueue.length);
+                        this.speechQueue = [];
+                    }
                     setTimeout(() => {
                         this.speak(nextText);
                     }, 500);
@@ -489,8 +505,13 @@ class BlindVisionApp {
                 this.isPlaying = false;
                 
                 // Process queued speech
-                if (this.speechQueue.length > 0) {
+                if (this.speechQueue.length > 0 && !this.isListening) {
                     const nextText = this.speechQueue.shift();
+                    // Clear remaining queue if too many
+                    if (this.speechQueue.length > 2) {
+                        console.log('Clearing speech queue, too many items:', this.speechQueue.length);
+                        this.speechQueue = [];
+                    }
                     setTimeout(() => {
                         this.speak(nextText);
                     }, 500);
@@ -613,13 +634,16 @@ Describe in English with clear, direct language suitable for someone who cannot 
             
             console.log('OpenAI response received:', description);
             
-            // Check if description is significantly different from last one
-            if (this.isSignificantlyDifferent(description)) {
-                this.displayDescription(description);
-                this.speak(description);
-                this.lastDescription = description;
-            } else {
-                console.log('Description too similar, not speaking');
+            // Don't speak if we're in voice interaction mode
+            if (!this.isListening && !this.speechQueue.length) {
+                // Check if description is significantly different from last one
+                if (this.isSignificantlyDifferent(description)) {
+                    this.displayDescription(description);
+                    this.speak(description);
+                    this.lastDescription = description;
+                } else {
+                    console.log('Description too similar, not speaking');
+                }
             }
             
             this.updateStatus('Analysis complete', 'ready');
@@ -697,8 +721,21 @@ Describe in English with clear, direct language suitable for someone who cannot 
             return;
         }
         
+        // Pause live mode while listening
+        this.wasLiveMode = this.liveMode;
+        if (this.liveMode) {
+            this.liveMode = false;
+            if (this.liveInterval) {
+                clearInterval(this.liveInterval);
+                this.liveInterval = null;
+            }
+        }
+        
         // Stop any playing audio first
         this.stopAllAudio();
+        
+        // Clear speech queue to prevent overlapping
+        this.speechQueue = [];
         
         // Capture current frame for context
         this.lastCapturedImage = this.captureFrame();
@@ -773,7 +810,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are a visual assistant for a blind person. Answer their questions about what you see in the image. Be specific, helpful, and concise. Focus on practical information that helps with navigation and understanding the environment.'
+                            content: 'You are a visual assistant for a blind person. Answer their specific question about what you see in the image. Be direct and helpful. If they ask about colors, describe the colors. If they ask about objects, describe those objects. Always answer exactly what they ask about, not just give a general description.'
                         },
                         {
                             role: 'user',
