@@ -576,7 +576,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
         const lowerCommand = command.toLowerCase();
         
         if (lowerCommand.includes('help')) {
-            this.speak('You can ask me any question. About what you see, general knowledge, or anything else. Just ask!');
+            this.speak('I can help you find things. Ask me: Where is my backpack? Do you see a bag? What\'s in front of me? Or any other question!');
             return;
         }
         
@@ -615,7 +615,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are a helpful assistant for a blind person. Answer ANY question they ask - whether it\'s about what you see in the image, general knowledge, advice, or anything else. Be conversational and helpful. If they ask about the image, describe what\'s relevant to their question. If they ask about something else, answer that too. You\'re their general-purpose assistant, not limited to just describing images.'
+                            content: 'You are a helpful assistant for a blind person trying to find objects. Be especially attentive when they ask about finding specific items like backpacks, bags, or personal belongings. Give clear directional guidance (left, right, straight ahead, behind you). If you see the object they\'re looking for, describe its location precisely. If you don\'t see it, suggest where to look next or how to turn the camera. Be their eyes for navigation and finding things.'
                         },
                         {
                             role: 'user',
@@ -624,14 +624,18 @@ Describe in English with clear, direct language suitable for someone who cannot 
                                     type: 'text',
                                     text: `The user asks: "${question}"
 
-IMPORTANT: Answer ONLY what they asked about. Do NOT give spatial descriptions unless they specifically ask about location, navigation, or what\'s around them. 
+IMPORTANT: Focus on helping them find what they\'re looking for. 
 
 Examples:
-- "What color is my hair?" → Answer only about hair color
-- "What\'s the capital of France?" → Answer "Paris"
-- "Where am I?" → Describe the space
+- "Where is my backpack?" → Look for a backpack and give precise location
+- "Do you see a black bag?" → Search the image and respond with location or "I don\'t see it, try turning left/right"
+- "What\'s in front of me?" → Describe what\'s ahead to help navigation
+- "Is there a backpack anywhere?" → Scan the entire visible area
 
-Be direct and answer exactly what was asked.`
+If searching for an object:
+1. Look carefully for it
+2. If found: Give precise location ("Yes, there\'s a black backpack on the floor to your left")
+3. If not found: Suggest where to look ("I don\'t see a backpack here. Try turning to your right")`
                                 },
                                 {
                                     type: 'image_url',
