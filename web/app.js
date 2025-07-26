@@ -101,7 +101,10 @@ class BlindVisionApp {
         }
         
         // Configure recognition
-        this.recognition.continuous = true;
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        // Mobile browsers have stricter requirements for continuous recognition
+        this.recognition.continuous = !isMobile; // Disable continuous mode on mobile
         this.recognition.interimResults = true;
         this.recognition.lang = 'en-US';
         this.recognition.maxAlternatives = 1;
@@ -160,9 +163,14 @@ class BlindVisionApp {
             
             // Restart listening automatically
             if (this.continuousListening && !this.isPlaying) {
+                // Mobile browsers need a shorter delay to maintain responsiveness
+                const restartDelay = isMobile ? 100 : 1000;
                 setTimeout(() => {
-                    this.startContinuousListening();
-                }, 1000);
+                    if (this.continuousListening && !this.isPlaying) {
+                        console.log('Auto-restarting recognition...');
+                        this.startContinuousListening();
+                    }
+                }, restartDelay);
             }
         };
     }
@@ -417,6 +425,26 @@ class BlindVisionApp {
         
         this.isPlaying = false;
         console.log('All audio sources stopped');
+    }
+    
+    stopRecognition() {
+        // Stop recognition
+        if (this.recognition && this.isListening) {
+            try {
+                this.recognition.stop();
+                this.isListening = false;
+            } catch (e) {
+                console.log('Error stopping recognition:', e);
+            }
+        }
+        
+        // Clear mobile restart interval
+        if (this.mobileRestartInterval) {
+            clearInterval(this.mobileRestartInterval);
+            this.mobileRestartInterval = null;
+        }
+        
+        this.continuousListening = false;
     }
 
     async speakWithElevenLabs(text) {
@@ -685,10 +713,59 @@ Describe in English with clear, direct language suitable for someone who cannot 
         
         console.log('Starting continuous listening...');
         
+        // Set continuous listening flag
+        this.continuousListening = true;
+        
+        // Detect mobile browser
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
         try {
             this.recognition.start();
             this.isListening = true;
             console.log('Continuous listening started');
+            
+            // Mobile browsers often stop recognition after a period of silence
+            // Restart it periodically to maintain continuous listening
+            if (isMobile && !this.mobileRestartInterval) {
+                // Clear any existing interval first
+                if (this.mobileRestartInterval) {
+                    clearInterval(this.mobileRestartInterval);
+                }
+                
+                this.mobileRestartInterval = setInterval(() => {
+                    if (this.continuousListening && !this.isPlaying) {
+                        console.log('Restarting recognition for mobile...');
+                        try {
+                            // First stop the recognition
+                            if (this.isListening) {
+                                this.recognition.stop();
+                                this.isListening = false;
+                            }
+                            
+                            // Then restart it after a short delay
+                            setTimeout(() => {
+                                if (this.continuousListening && !this.isPlaying && !this.isListening) {
+                                    try {
+                                        this.recognition.start();
+                                        this.isListening = true;
+                                        console.log('Mobile recognition restarted successfully');
+                                    } catch (e) {
+                                        console.log('Error starting recognition:', e);
+                                        // Try again after a delay
+                                        setTimeout(() => {
+                                            if (this.continuousListening && !this.isPlaying && !this.isListening) {
+                                                this.startContinuousListening();
+                                            }
+                                        }, 2000);
+                                    }
+                                }
+                            }, 200);
+                        } catch (e) {
+                            console.log('Error stopping recognition for restart:', e);
+                        }
+                    }
+                }, 20000); // Restart every 20 seconds (more frequent for better mobile response)
+            }
         } catch (error) {
             console.error('Failed to start recognition:', error);
             
