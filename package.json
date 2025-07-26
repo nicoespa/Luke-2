@@ -6,7 +6,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build": "echo 'Web app ready for deployment'",
+    "vercel-build": "echo 'Web app ready for deployment'"
   },
   "dependencies": {
     "expo": "~53.0.20",

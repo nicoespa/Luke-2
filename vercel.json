@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "buildCommand": "echo 'Web app ready for deployment'",
+  "outputDirectory": "web",
+  "framework": null
+}

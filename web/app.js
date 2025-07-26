@@ -14,11 +14,17 @@ class BlindVisionApp {
         this.currentAudio = null;
         this.isPlaying = false;
         
-        // API Keys - Load from environment variables or localStorage
-        this.apiKey = process.env.OPENAI_API_KEY || localStorage.getItem('openaiKey') || 'your_openai_api_key_here';
+        // API Keys - Load from ENV, localStorage, or fallback
+        this.apiKey = (window.ENV && window.ENV.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== '__OPENAI_API_KEY__') ? 
+                      window.ENV.OPENAI_API_KEY : 
+                      localStorage.getItem('openaiKey') || 
+                      'your_openai_api_key_here';
         
-        // ElevenLabs settings - Load from environment variables or localStorage
-        this.elevenLabsKey = process.env.ELEVENLABS_API_KEY || localStorage.getItem('elevenLabsKey') || 'your_elevenlabs_api_key_here';
+        // ElevenLabs settings - Load from ENV, localStorage, or fallback
+        this.elevenLabsKey = (window.ENV && window.ENV.ELEVENLABS_API_KEY && window.ENV.ELEVENLABS_API_KEY !== '__ELEVENLABS_API_KEY__') ? 
+                             window.ENV.ELEVENLABS_API_KEY : 
+                             localStorage.getItem('elevenLabsKey') || 
+                             'your_elevenlabs_api_key_here';
         this.elevenLabsVoiceId = '21m00Tcm4TlvDq8ikWAM';
         
         // Enable ElevenLabs for natural voice synthesis
