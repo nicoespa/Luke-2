@@ -1,5 +1,6 @@
 class BlindVisionApp {
     constructor() {
+        this.hasStarted = false;
         // Initialize properties
         this.stream = null;
         this.video = null;
@@ -59,11 +60,21 @@ class BlindVisionApp {
         
         console.log('Elements initialized');
         
-        // Start continuous listening after a delay (only if speech recognition is available)
-        if (this.recognition) {
-            setTimeout(() => {
-                this.startContinuousListening();
-            }, 3000);
+        // Set up start button for mobile
+        const startButton = document.getElementById('startButton');
+        const startScreen = document.getElementById('startScreen');
+        
+        if (startButton && startScreen) {
+            startButton.addEventListener('click', () => {
+                this.handleStartButtonClick();
+            });
+            
+            startScreen.addEventListener('click', () => {
+                this.handleStartButtonClick();
+            });
+        } else {
+            // Desktop - start immediately
+            this.startApp();
         }
     }
 
@@ -238,22 +249,70 @@ class BlindVisionApp {
 
 
 
+    handleStartButtonClick() {
+        if (this.hasStarted) return;
+        this.hasStarted = true;
+        
+        // Hide start screen
+        const startScreen = document.getElementById('startScreen');
+        const videoContainer = document.getElementById('videoContainer');
+        
+        if (startScreen) {
+            startScreen.style.display = 'none';
+        }
+        
+        if (videoContainer) {
+            videoContainer.style.display = 'flex';
+        }
+        
+        // Now start the app with user interaction
+        this.startApp();
+    }
+    
+    startApp() {
+        console.log('Starting app...');
+        
+        // Start with welcome message
+        this.speak('BlindVision Assistant ready. Just speak to ask me questions.');
+        
+        // Start camera
+        setTimeout(() => {
+            this.startCamera();
+        }, 2000);
+        
+        // Start continuous listening after a delay (only if speech recognition is available)
+        if (this.recognition) {
+            setTimeout(() => {
+                this.startContinuousListening();
+            }, 3500);
+        }
+    }
+    
     autoStart() {
-        console.log('Auto-starting app for blind users...');
+        console.log('Auto-start called...');
         
         // Detect if on mobile
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
         if (isMobile) {
-            this.speak('BlindVision Assistant ready. Tap anywhere to allow camera and microphone access.');
+            // On mobile, wait for user interaction
+            console.log('Mobile detected - waiting for user interaction');
+            // The start screen is already showing
         } else {
-            this.speak('BlindVision Assistant ready. Just speak to ask me questions.');
+            // On desktop, hide start screen and start immediately
+            const startScreen = document.getElementById('startScreen');
+            const videoContainer = document.getElementById('videoContainer');
+            
+            if (startScreen) {
+                startScreen.style.display = 'none';
+            }
+            
+            if (videoContainer) {
+                videoContainer.style.display = 'flex';
+            }
+            
+            this.startApp();
         }
-        
-        // Delay camera start to avoid overlapping speech
-        setTimeout(() => {
-            this.startCamera();
-        }, 3000);
     }
 
     async speak(text) {

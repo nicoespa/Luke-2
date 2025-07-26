@@ -71,17 +71,66 @@
         .hidden {
             display: none !important;
         }
+        
+        /* Start screen for mobile */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        #startScreen h1 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        
+        #startScreen p {
+            font-size: 1.2em;
+            margin-bottom: 40px;
+            opacity: 0.8;
+        }
+        
+        #startButton {
+            font-size: 1.5em;
+            padding: 20px 40px;
+            background: #44ff44;
+            color: #000;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+        }
     </style>
 </head>
 <body>
-    <div id="videoContainer">
+    <!-- Start screen for mobile -->
+    <div id="startScreen">
+        <h1>BlindVision Assistant</h1>
+        <p>Tap to start the visual assistant</p>
+        <button id="startButton">Start Assistant</button>
+    </div>
+    
+    <div id="videoContainer" style="display: none;">
         <video id="video" autoplay muted playsinline></video>
-        <div id="status" title="Touch to toggle analysis"></div>
+        <div id="status" title="Touch to stop audio"></div>
     </div>
     
     <!-- Hidden help text for screen readers -->
     <div class="hidden" aria-live="polite">
-        <p>BlindVision Assistant: Long press anywhere or press V key to ask questions about what you see.</p>
+        <p>BlindVision Assistant: Speak to ask questions about what you see.</p>
     </div>
     
     <script src="env-loader.js"></script>
