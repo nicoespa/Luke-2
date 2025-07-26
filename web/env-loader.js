@@ -14,9 +14,6 @@ async function loadEnv() {
                 const config = await response.json();
                 window.ENV = config;
                 console.log('Environment variables loaded from API');
-                // Debug: Show first 20 chars of each key
-                console.log('API returned OPENAI_API_KEY:', config.OPENAI_API_KEY ? config.OPENAI_API_KEY.substring(0, 20) + '...' : 'NOT SET');
-                console.log('API returned ELEVENLABS_API_KEY:', config.ELEVENLABS_API_KEY ? config.ELEVENLABS_API_KEY.substring(0, 20) + '...' : 'NOT SET');
             }
         } else {
             // In development, try to load from .env file

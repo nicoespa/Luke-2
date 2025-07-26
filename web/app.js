@@ -20,8 +20,6 @@ class BlindVisionApp {
                       localStorage.getItem('openaiKey') || 
                       'your_openai_api_key_here';
         
-        // Debug: Log the API key (first 20 chars only for security)
-        console.log('OpenAI API key loaded:', this.apiKey.substring(0, 20) + '...');
         
         // ElevenLabs settings - Load from ENV, localStorage, or fallback
         this.elevenLabsKey = (window.ENV && window.ENV.ELEVENLABS_API_KEY && window.ENV.ELEVENLABS_API_KEY !== '__ELEVENLABS_API_KEY__') ? 
