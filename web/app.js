@@ -18,6 +18,9 @@ class BlindVisionApp {
         this.isAnalyzing = false;
         this.analysisTimeout = null;
         
+        // Mode announcement tracking
+        this.hasAnnouncedMode = false;
+        
         // API Keys - Load from ENV, localStorage, or fallback
         this.apiKey = (window.ENV && window.ENV.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== '__OPENAI_API_KEY__') ? 
                       window.ENV.OPENAI_API_KEY : 
@@ -122,7 +125,16 @@ class BlindVisionApp {
     }
 
     handleTouchControl() {
-        console.log('Touch/click detected - toggling live mode');
+        console.log('Touch/click detected');
+        
+        // If audio is playing, just stop it without toggling mode
+        if (this.isPlaying) {
+            console.log('Stopping current speech');
+            this.stopAllAudio();
+            return;
+        }
+        
+        // Otherwise, toggle live mode
         this.toggleLiveMode();
     }
 
@@ -138,7 +150,11 @@ class BlindVisionApp {
         
         if (this.liveMode) {
             console.log('Live mode activated');
-            this.speak('Live mode active.');
+            // Only announce on first activation or when explicitly requested
+            if (!this.hasAnnouncedMode) {
+                this.speak('Live mode active.');
+                this.hasAnnouncedMode = true;
+            }
             this.updateStatus('Live mode active', 'analyzing');
             
             // Start analyzing after a delay to let speech finish
@@ -152,7 +168,7 @@ class BlindVisionApp {
             }, 5000); // Increased to 5 seconds to allow time for speech
         } else {
             console.log('Live mode deactivated');
-            this.speak('Live mode deactivated. Tap to resume.');
+            // Don't announce deactivation - it's annoying
             this.updateStatus('Live mode inactive', 'ready');
             
             // Stop the interval
@@ -160,6 +176,9 @@ class BlindVisionApp {
                 clearInterval(this.liveInterval);
                 this.liveInterval = null;
             }
+            
+            // Reset announcement flag
+            this.hasAnnouncedMode = false;
         }
     }
 
