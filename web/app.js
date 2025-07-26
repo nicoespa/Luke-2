@@ -101,7 +101,7 @@ class BlindVisionApp {
         }
         
         // Configure recognition
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const isMobile = false
         
         // Mobile browsers have stricter requirements for continuous recognition
         this.recognition.continuous = !isMobile; // Disable continuous mode on mobile
