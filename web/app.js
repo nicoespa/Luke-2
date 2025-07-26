@@ -21,6 +21,15 @@ class BlindVisionApp {
         // Mode announcement tracking
         this.hasAnnouncedMode = false;
         
+        // Voice interaction
+        this.recognition = null;
+        this.isListening = false;
+        this.conversationMode = false;
+        this.lastCapturedImage = null;
+        
+        // Initialize speech recognition
+        this.initializeSpeechRecognition();
+        
         // API Keys - Load from ENV, localStorage, or fallback
         this.apiKey = (window.ENV && window.ENV.OPENAI_API_KEY && window.ENV.OPENAI_API_KEY !== '__OPENAI_API_KEY__') ? 
                       window.ENV.OPENAI_API_KEY : 
@@ -60,6 +69,52 @@ class BlindVisionApp {
 
     bindEvents() {
         // Events are handled in initializeElements
+    }
+    
+    initializeSpeechRecognition() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            console.log('Speech recognition not supported');
+            return;
+        }
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        this.recognition = new SpeechRecognition();
+        
+        // Configure recognition
+        this.recognition.continuous = false;
+        this.recognition.interimResults = false;
+        this.recognition.lang = 'en-US';
+        
+        this.recognition.onstart = () => {
+            console.log('Speech recognition started');
+            this.isListening = true;
+            this.updateStatus('Listening...', 'listening');
+        };
+        
+        this.recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            console.log('User said:', transcript);
+            this.handleVoiceCommand(transcript);
+        };
+        
+        this.recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            this.isListening = false;
+            
+            if (event.error === 'no-speech') {
+                this.speak('I didn\'t hear anything. Please try again.');
+            } else if (event.error === 'network') {
+                this.speak('Network error. Please check your connection.');
+            }
+            
+            this.updateStatus('Ready', 'ready');
+        };
+        
+        this.recognition.onend = () => {
+            console.log('Speech recognition ended');
+            this.isListening = false;
+            this.updateStatus('Ready', 'ready');
+        };
     }
 
     async startCamera() {
@@ -106,10 +161,12 @@ class BlindVisionApp {
         const statusElement = document.getElementById('status');
         if (statusElement) {
             // Remove all classes first
-            statusElement.classList.remove('active', 'inactive');
+            statusElement.classList.remove('active', 'inactive', 'listening');
             
             // Add appropriate class based on type
-            if (type === 'ready' || type === 'analyzing') {
+            if (type === 'listening') {
+                statusElement.classList.add('listening');
+            } else if (type === 'ready' || type === 'analyzing') {
                 statusElement.classList.add('active');
             } else {
                 statusElement.classList.add('inactive');
@@ -134,14 +191,42 @@ class BlindVisionApp {
             return;
         }
         
-        // Otherwise, toggle live mode
-        this.toggleLiveMode();
+        // Long press detection for voice input
+        if (!this.touchTimer) {
+            this.touchStartTime = Date.now();
+            this.touchTimer = setTimeout(() => {
+                // Long press detected - start listening
+                this.startListening();
+                this.touchTimer = null;
+            }, 800); // 800ms for long press
+            
+            // Set up touch end handler
+            const touchEndHandler = () => {
+                if (this.touchTimer) {
+                    clearTimeout(this.touchTimer);
+                    this.touchTimer = null;
+                    
+                    // Short press - toggle live mode
+                    if (Date.now() - this.touchStartTime < 800) {
+                        this.toggleLiveMode();
+                    }
+                }
+                document.removeEventListener('touchend', touchEndHandler);
+                document.removeEventListener('mouseup', touchEndHandler);
+            };
+            
+            document.addEventListener('touchend', touchEndHandler);
+            document.addEventListener('mouseup', touchEndHandler);
+        }
     }
 
     handleKeyPress(e) {
         if (e.key === ' ') { // Space bar
             e.preventDefault();
             this.handleTouchControl();
+        } else if (e.key === 'v' || e.key === 'V') { // V for voice
+            e.preventDefault();
+            this.startListening();
         }
     }
 
@@ -184,11 +269,11 @@ class BlindVisionApp {
 
     autoStart() {
         console.log('Auto-starting app for blind users...');
-        this.speak('BlindVision Assistant ready. Please allow camera permissions.');
+        this.speak('BlindVision Assistant ready. Please allow camera permissions. Long press or press V to ask questions.');
         // Delay camera start to avoid overlapping speech
         setTimeout(() => {
             this.startCamera();
-        }, 2000);
+        }, 3000);
     }
 
     async speak(text) {
@@ -596,6 +681,136 @@ Describe in English with clear, direct language suitable for someone who cannot 
         if (this.liveInterval) {
             clearInterval(this.liveInterval);
             this.liveInterval = null;
+        }
+    }
+}
+
+    startListening() {
+        if (!this.recognition) {
+            this.speak('Speech recognition not available in your browser.');
+            return;
+        }
+        
+        if (this.isListening) {
+            console.log('Already listening');
+            return;
+        }
+        
+        // Stop any playing audio first
+        this.stopAllAudio();
+        
+        // Capture current frame for context
+        this.lastCapturedImage = this.captureFrame();
+        
+        // Play a sound or speak to indicate listening
+        this.speak('I\'m listening...');
+        
+        // Start recognition after a short delay
+        setTimeout(() => {
+            try {
+                this.recognition.start();
+            } catch (error) {
+                console.error('Failed to start recognition:', error);
+                this.speak('Failed to start listening. Please try again.');
+            }
+        }, 1000);
+    }
+    
+    async handleVoiceCommand(command) {
+        console.log('Processing voice command:', command);
+        
+        // Common navigation commands
+        const lowerCommand = command.toLowerCase();
+        
+        if (lowerCommand.includes('help')) {
+            this.speak('You can ask me questions about what you see. Say things like: What\'s in front of me? Are there any obstacles? What color is that? Or describe the room.');
+            return;
+        }
+        
+        if (lowerCommand.includes('stop') || lowerCommand.includes('quiet')) {
+            this.stopAllAudio();
+            if (this.liveMode) {
+                this.toggleLiveMode();
+            }
+            return;
+        }
+        
+        if (lowerCommand.includes('start') && lowerCommand.includes('live')) {
+            if (!this.liveMode) {
+                this.toggleLiveMode();
+            }
+            return;
+        }
+        
+        // For other questions, use OpenAI to understand and respond
+        if (this.lastCapturedImage) {
+            await this.askAboutScene(command);
+        } else {
+            // Capture a frame first
+            this.lastCapturedImage = this.captureFrame();
+            if (this.lastCapturedImage) {
+                await this.askAboutScene(command);
+            } else {
+                this.speak('Unable to capture image. Please make sure the camera is active.');
+            }
+        }
+    }
+    
+    async askAboutScene(question) {
+        try {
+            console.log('Asking about scene:', question);
+            this.updateStatus('Analyzing your question...', 'analyzing');
+            
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a visual assistant for a blind person. Answer their questions about what you see in the image. Be specific, helpful, and concise. Focus on practical information that helps with navigation and understanding the environment.'
+                        },
+                        {
+                            role: 'user',
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: `The user asks: "${question}"
+
+Please answer their question based on what you see in the image. If the question is about something not visible in the image, let them know politely.`
+                                },
+                                {
+                                    type: 'image_url',
+                                    image_url: {
+                                        url: this.lastCapturedImage
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens: 200
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`OpenAI API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const answer = data.choices[0].message.content;
+            
+            console.log('OpenAI answer:', answer);
+            this.speak(answer);
+            this.updateStatus('Ready', 'ready');
+            
+        } catch (error) {
+            console.error('Error asking about scene:', error);
+            this.speak('Sorry, I had trouble analyzing that. Please try again.');
+            this.updateStatus('Ready', 'ready');
         }
     }
 }

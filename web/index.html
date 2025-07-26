@@ -61,6 +61,12 @@
             box-shadow: 0 0 10px rgba(68, 255, 68, 0.5) !important;
         }
         
+        .listening {
+            background: #4444ff !important;
+            box-shadow: 0 0 20px rgba(68, 68, 255, 0.8) !important;
+            animation: pulse 0.5s infinite;
+        }
+        
         /* Hide any text that might appear */
         .hidden {
             display: none !important;
@@ -71,6 +77,11 @@
     <div id="videoContainer">
         <video id="video" autoplay muted playsinline></video>
         <div id="status" title="Touch to toggle analysis"></div>
+    </div>
+    
+    <!-- Hidden help text for screen readers -->
+    <div class="hidden" aria-live="polite">
+        <p>BlindVision Assistant: Long press anywhere or press V key to ask questions about what you see.</p>
     </div>
     
     <script src="env-loader.js"></script>
