@@ -627,8 +627,10 @@ Describe in English with clear, direct language suitable for someone who cannot 
         // Always capture a fresh image before answering
         this.lastCapturedImage = this.captureFrame();
         if (this.lastCapturedImage) {
+            console.log('Image captured successfully, length:', this.lastCapturedImage.length);
             await this.askAboutScene(command);
         } else {
+            console.error('Failed to capture image');
             this.speak('Unable to capture image. Please make sure the camera is active.');
         }
     }
@@ -649,7 +651,7 @@ Describe in English with clear, direct language suitable for someone who cannot 
                     messages: [
                         {
                             role: 'system',
-                            content: 'You are a helpful assistant for a blind person trying to find objects. Be especially attentive when they ask about finding specific items like backpacks, bags, or personal belongings. Give clear directional guidance (left, right, straight ahead, behind you). If you see the object they\'re looking for, describe its location precisely. If you don\'t see it, suggest where to look next or how to turn the camera. Be their eyes for navigation and finding things.'
+                            content: 'You are a visual assistant helping a blind person. You CAN and SHOULD describe everything you see, including people, their appearance, hair color, clothing, glasses, and any objects. When asked about visual features like hair color or if someone is wearing glasses, you MUST provide a direct answer based on what you see in the image. Do not refuse to describe people or their features - the user needs this information for daily life. Be helpful and descriptive.'
                         },
                         {
                             role: 'user',
@@ -658,18 +660,15 @@ Describe in English with clear, direct language suitable for someone who cannot 
                                     type: 'text',
                                     text: `The user asks: "${question}"
 
-IMPORTANT: Focus on helping them find what they\'re looking for. 
+IMPORTANT: You MUST answer their question directly based on what you see. Do NOT refuse to describe people or their features.
 
 Examples:
-- "Where is my backpack?" → Look for a backpack and give precise location
-- "Do you see a black bag?" → Search the image and respond with location or "I don\'t see it, try turning left/right"
-- "What\'s in front of me?" → Describe what\'s ahead to help navigation
-- "Is there a backpack anywhere?" → Scan the entire visible area
+- "What color is my hair?" → "Your hair is [color]"
+- "Am I wearing glasses?" → "Yes, you are wearing glasses" or "No, I don\'t see glasses"
+- "Where is my backpack?" → "I see a backpack on the floor to your left"
+- "What do you see?" → Describe the scene including people and objects
 
-If searching for an object:
-1. Look carefully for it
-2. If found: Give precise location ("Yes, there\'s a black backpack on the floor to your left")
-3. If not found: Suggest where to look ("I don\'t see a backpack here. Try turning to your right")`
+Always provide helpful, direct answers about what you observe in the image.`
                                 },
                                 {
                                     type: 'image_url',
