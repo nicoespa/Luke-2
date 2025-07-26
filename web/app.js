@@ -62,8 +62,10 @@ class BlindVisionApp {
         document.addEventListener('touchstart', this.handleTouchControl.bind(this));
         document.addEventListener('click', this.handleTouchControl.bind(this));
         
-        // Keyboard shortcuts for accessibility
-        document.addEventListener('keydown', this.handleKeyPress.bind(this));
+        // Keyboard shortcuts for accessibility (desktop only)
+        if (!('ontouchstart' in window)) {
+            document.addEventListener('keydown', this.handleKeyPress.bind(this));
+        }
         
         console.log('Elements initialized');
     }
@@ -195,39 +197,10 @@ class BlindVisionApp {
     handleTouchControl() {
         console.log('Touch/click detected');
         
-        // If audio is playing, just stop it without toggling mode
+        // Touch only stops audio - nothing else
         if (this.isPlaying) {
             console.log('Stopping current speech');
             this.stopAllAudio();
-            return;
-        }
-        
-        // Long press detection for voice input
-        if (!this.touchTimer) {
-            this.touchStartTime = Date.now();
-            this.touchTimer = setTimeout(() => {
-                // Long press detected - start listening
-                this.startListening();
-                this.touchTimer = null;
-            }, 800); // 800ms for long press
-            
-            // Set up touch end handler
-            const touchEndHandler = () => {
-                if (this.touchTimer) {
-                    clearTimeout(this.touchTimer);
-                    this.touchTimer = null;
-                    
-                    // Short press - toggle live mode
-                    if (Date.now() - this.touchStartTime < 800) {
-                        this.toggleLiveMode();
-                    }
-                }
-                document.removeEventListener('touchend', touchEndHandler);
-                document.removeEventListener('mouseup', touchEndHandler);
-            };
-            
-            document.addEventListener('touchend', touchEndHandler);
-            document.addEventListener('mouseup', touchEndHandler);
         }
     }
 
@@ -238,6 +211,9 @@ class BlindVisionApp {
         } else if (e.key === 'v' || e.key === 'V') { // V for voice
             e.preventDefault();
             this.startListening();
+        } else if (e.key === 's' || e.key === 'S') { // S to stop/start live mode
+            e.preventDefault();
+            this.toggleLiveMode();
         }
     }
 
@@ -280,7 +256,7 @@ class BlindVisionApp {
 
     autoStart() {
         console.log('Auto-starting app for blind users...');
-        this.speak('BlindVision Assistant ready. Please allow camera permissions. Long press or press V to ask questions.');
+        this.speak('BlindVision Assistant ready. Touch screen to stop audio. Press V to ask questions.');
         // Delay camera start to avoid overlapping speech
         setTimeout(() => {
             this.startCamera();
@@ -339,18 +315,33 @@ class BlindVisionApp {
         
         // Stop current audio if playing
         if (this.currentAudio) {
-            this.currentAudio.pause();
-            this.currentAudio.currentTime = 0;
-            this.currentAudio.src = '';
-            this.currentAudio = null;
+            try {
+                this.currentAudio.pause();
+                this.currentAudio.currentTime = 0;
+                // Remove all event listeners to prevent errors
+                this.currentAudio.onended = null;
+                this.currentAudio.onerror = null;
+                this.currentAudio.onplay = null;
+                this.currentAudio.oncanplay = null;
+                this.currentAudio.src = '';
+                this.currentAudio = null;
+            } catch (e) {
+                console.log('Error stopping audio:', e);
+            }
         }
         
         // Stop all audio elements
         const allAudios = document.querySelectorAll('audio');
         allAudios.forEach(audio => {
-            audio.pause();
-            audio.currentTime = 0;
-            audio.src = '';
+            try {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.onended = null;
+                audio.onerror = null;
+                audio.src = '';
+            } catch (e) {
+                console.log('Error stopping audio element:', e);
+            }
         });
         
         // Cancel speech synthesis
@@ -444,7 +435,8 @@ class BlindVisionApp {
                 console.error('ElevenLabs audio error:', error);
                 this.isPlaying = false;
                 this.currentAudio = null;
-                throw new Error('Audio playback failed');
+                // Don't throw error - just log it
+                URL.revokeObjectURL(audioUrl);
             };
             
             await audio.play();
@@ -819,7 +811,14 @@ Describe in English with clear, direct language suitable for someone who cannot 
                                     type: 'text',
                                     text: `The user asks: "${question}"
 
-Please answer their question. If it\'s about the image, describe what\'s relevant. If it\'s a general question, answer it helpfully. Be their friendly assistant for any type of question.`
+IMPORTANT: Answer ONLY what they asked about. Do NOT give spatial descriptions unless they specifically ask about location, navigation, or what\'s around them. 
+
+Examples:
+- "What color is my hair?" → Answer only about hair color
+- "What\'s the capital of France?" → Answer "Paris"
+- "Where am I?" → Describe the space
+
+Be direct and answer exactly what was asked.`
                                 },
                                 {
                                     type: 'image_url',
