@@ -230,6 +230,12 @@ class BlindVisionApp {
             return;
         }
         
+        // Stop speech recognition to prevent echo
+        if (this.recognition && this.isListening) {
+            console.log('Stopping speech recognition while speaking');
+            this.recognition.stop();
+        }
+        
         // Set isPlaying immediately to prevent race conditions
         this.isPlaying = true;
         
@@ -373,8 +379,16 @@ class BlindVisionApp {
                 this.currentAudio = null;
                 URL.revokeObjectURL(audioUrl);
                 
+                // Restart speech recognition after speaking
+                if (this.continuousListening && !this.isListening) {
+                    console.log('Restarting speech recognition after speaking');
+                    setTimeout(() => {
+                        this.startContinuousListening();
+                    }, 500);
+                }
+                
                 // Process queued speech
-                if (this.speechQueue.length > 0 && !this.isListening) {
+                if (this.speechQueue.length > 0) {
                     const nextText = this.speechQueue.shift();
                     // Clear remaining queue if too many
                     if (this.speechQueue.length > 2) {
@@ -452,8 +466,16 @@ class BlindVisionApp {
                 console.log('Browser speech ended');
                 this.isPlaying = false;
                 
+                // Restart speech recognition after speaking
+                if (this.continuousListening && !this.isListening) {
+                    console.log('Restarting speech recognition after browser speech');
+                    setTimeout(() => {
+                        this.startContinuousListening();
+                    }, 500);
+                }
+                
                 // Process queued speech
-                if (this.speechQueue.length > 0 && !this.isListening) {
+                if (this.speechQueue.length > 0) {
                     const nextText = this.speechQueue.shift();
                     // Clear remaining queue if too many
                     if (this.speechQueue.length > 2) {
