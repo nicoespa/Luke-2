@@ -37,5 +37,5 @@ async function loadEnv() {
     }
 }
 
-// Load environment variables when page loads
-loadEnv(); 
+// Create a promise that resolves when env is loaded
+window.envLoaded = loadEnv(); 

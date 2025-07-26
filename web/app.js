@@ -534,6 +534,14 @@ Describe in English with clear, direct language suitable for someone who cannot 
 }
 
 // Initialize app when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Wait for environment variables to load
+    if (window.envLoaded) {
+        await window.envLoaded;
+    }
+    
+    // Small delay to ensure ENV is fully set
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     new BlindVisionApp();
 }); 
