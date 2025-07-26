@@ -5,8 +5,6 @@ class BlindVisionApp {
         this.video = null;
         this.canvas = null;
         this.ctx = null;
-        this.liveMode = true; // Always on for continuous description
-        this.lastDescription = '';
         this.speechQueue = [];
         this.isSpeaking = false;
         
@@ -16,11 +14,6 @@ class BlindVisionApp {
         
         // Analysis management
         this.isAnalyzing = false;
-        this.analysisTimeout = null;
-        
-        // Mode announcement tracking
-        this.hasAnnouncedMode = false;
-        this.wasLiveMode = false;
         
         // Voice interaction
         this.recognition = null;
@@ -117,16 +110,6 @@ class BlindVisionApp {
             console.log('Speech recognition ended');
             this.isListening = false;
             this.updateStatus('Ready', 'ready');
-            
-            // Resume live mode if it was active before
-            if (this.wasLiveMode) {
-                setTimeout(() => {
-                    this.liveMode = true;
-                    this.liveInterval = setInterval(() => {
-                        this.analyzeLiveFrame();
-                    }, 5000);
-                }, 2000); // Wait 2 seconds before resuming
-            }
         };
     }
 
@@ -149,12 +132,7 @@ class BlindVisionApp {
             this.video.srcObject = this.stream;
             
             console.log('Camera started successfully');
-            this.updateStatus('Camera active', 'ready');
-            
-            // Start continuous description after a delay
-            setTimeout(() => {
-                this.startContinuousMode();
-            }, 2000); // Delay to avoid overlap
+            this.updateStatus('Ready', 'ready');
             
         } catch (error) {
             console.error('Camera error:', error);
@@ -211,24 +189,10 @@ class BlindVisionApp {
         }
     }
 
-    startContinuousMode() {
-        console.log('Starting continuous description mode');
-        this.updateStatus('Active', 'analyzing');
-        
-        // Start analyzing after a delay
-        setTimeout(() => {
-            this.analyzeFrame();
-        }, 1500);
-        
-        // Then analyze every 5 seconds
-        this.liveInterval = setInterval(() => {
-            this.analyzeLiveFrame();
-        }, 5000);
-    }
 
     autoStart() {
         console.log('Auto-starting app for blind users...');
-        this.speak('BlindVision Assistant ready. Touch screen to stop audio. Press V to ask questions.');
+        this.speak('BlindVision Assistant ready. Press V to ask me questions.');
         // Delay camera start to avoid overlapping speech
         setTimeout(() => {
             this.startCamera();
@@ -569,110 +533,6 @@ Describe in English with clear, direct language suitable for someone who cannot 
         }
     }
 
-    async analyzeFrame() {
-        // Prevent multiple simultaneous analyses
-        if (this.isAnalyzing || this.isPlaying) {
-            console.log('Analysis or audio already in progress, skipping');
-            return;
-        }
-        
-        if (!this.stream) {
-            console.log('No camera stream available');
-            this.speak('Camera not available. Please check camera permissions.');
-            return;
-        }
-        
-        this.isAnalyzing = true;
-        
-        try {
-            console.log('Analyzing frame...');
-            this.updateStatus('Analyzing...', 'analyzing');
-            
-            const imageData = this.captureFrame();
-            if (!imageData) {
-                throw new Error('Failed to capture image');
-            }
-            
-            console.log('Image captured, calling OpenAI...');
-            const description = await this.callOpenAIVision(imageData);
-            
-            console.log('OpenAI response received:', description);
-            
-            // Don't speak if we're in voice interaction mode
-            if (!this.isListening && !this.speechQueue.length) {
-                // Check if description is significantly different from last one
-                if (this.isSignificantlyDifferent(description)) {
-                    this.displayDescription(description);
-                    this.speak(description);
-                    this.lastDescription = description;
-                } else {
-                    console.log('Description too similar, not speaking');
-                }
-            }
-            
-            this.updateStatus('Analysis complete', 'ready');
-            
-        } catch (error) {
-            console.error('Analysis error:', error);
-            this.updateStatus('Analysis failed', 'error');
-            this.speak('Analysis failed. Please try again.');
-        } finally {
-            this.isAnalyzing = false;
-        }
-    }
-
-    isSignificantlyDifferent(newDescription) {
-        if (!this.lastDescription) return true;
-        
-        // Simple similarity check - if descriptions are very similar, don't repeat
-        const similarity = this.calculateSimilarity(this.lastDescription, newDescription);
-        return similarity < 0.8; // Speak if less than 80% similar
-    }
-
-    calculateSimilarity(text1, text2) {
-        const words1 = text1.toLowerCase().split(/\s+/);
-        const words2 = text2.toLowerCase().split(/\s+/);
-        
-        const commonWords = words1.filter(word => words2.includes(word));
-        const totalWords = new Set([...words1, ...words2]).size;
-        
-        return commonWords.length / totalWords;
-    }
-
-    analyzeLiveFrame() {
-        if (!this.liveMode || this.isPlaying || this.isAnalyzing) {
-            console.log('Skipping live frame analysis - playing:', this.isPlaying, 'analyzing:', this.isAnalyzing);
-            return;
-        }
-        
-        this.analyzeFrame();
-    }
-
-    startLiveMode() {
-        if (this.liveMode) return;
-        
-        this.liveMode = true;
-        console.log('Live mode started');
-        this.speak('Live mode started. I will describe your surroundings continuously.');
-        
-        // Analyze every 2 seconds
-        this.liveInterval = setInterval(() => {
-            this.analyzeLiveFrame();
-        }, 2000);
-    }
-
-    stopLiveMode() {
-        if (!this.liveMode) return;
-        
-        this.liveMode = false;
-        console.log('Live mode stopped');
-        this.speak('Live mode stopped.');
-        
-        if (this.liveInterval) {
-            clearInterval(this.liveInterval);
-            this.liveInterval = null;
-        }
-    }
     
     startListening() {
         if (!this.recognition) {
@@ -685,15 +545,6 @@ Describe in English with clear, direct language suitable for someone who cannot 
             return;
         }
         
-        // Pause live mode while listening
-        this.wasLiveMode = this.liveMode;
-        if (this.liveMode) {
-            this.liveMode = false;
-            if (this.liveInterval) {
-                clearInterval(this.liveInterval);
-                this.liveInterval = null;
-            }
-        }
         
         // Stop any playing audio first
         this.stopAllAudio();
