@@ -5,7 +5,7 @@ class BlindVisionApp {
         this.video = null;
         this.canvas = null;
         this.ctx = null;
-        this.liveMode = false;
+        this.liveMode = true; // Always on for continuous description
         this.lastDescription = '';
         this.speechQueue = [];
         this.isSpeaking = false;
@@ -151,10 +151,10 @@ class BlindVisionApp {
             console.log('Camera started successfully');
             this.updateStatus('Camera active', 'ready');
             
-            // Auto-start live mode for blind users after a delay
+            // Start continuous description after a delay
             setTimeout(() => {
-                this.toggleLiveMode();
-            }, 2000); // Increased delay to avoid overlap
+                this.startContinuousMode();
+            }, 2000); // Delay to avoid overlap
             
         } catch (error) {
             console.error('Camera error:', error);
@@ -205,53 +205,25 @@ class BlindVisionApp {
     }
 
     handleKeyPress(e) {
-        if (e.key === ' ') { // Space bar
-            e.preventDefault();
-            this.handleTouchControl();
-        } else if (e.key === 'v' || e.key === 'V') { // V for voice
+        if (e.key === 'v' || e.key === 'V') { // V for voice questions
             e.preventDefault();
             this.startListening();
-        } else if (e.key === 's' || e.key === 'S') { // S to stop/start live mode
-            e.preventDefault();
-            this.toggleLiveMode();
         }
     }
 
-    toggleLiveMode() {
-        this.liveMode = !this.liveMode;
+    startContinuousMode() {
+        console.log('Starting continuous description mode');
+        this.updateStatus('Active', 'analyzing');
         
-        if (this.liveMode) {
-            console.log('Live mode activated');
-            // Only announce on first activation or when explicitly requested
-            if (!this.hasAnnouncedMode) {
-                this.speak('Live mode active.');
-                this.hasAnnouncedMode = true;
-            }
-            this.updateStatus('Live mode active', 'analyzing');
-            
-            // Start analyzing after a delay to let speech finish
-            setTimeout(() => {
-                this.analyzeFrame();
-            }, 1500);
-            
-            // Then analyze every 5 seconds
-            this.liveInterval = setInterval(() => {
-                this.analyzeLiveFrame();
-            }, 5000); // Increased to 5 seconds to allow time for speech
-        } else {
-            console.log('Live mode deactivated');
-            // Don't announce deactivation - it's annoying
-            this.updateStatus('Live mode inactive', 'ready');
-            
-            // Stop the interval
-            if (this.liveInterval) {
-                clearInterval(this.liveInterval);
-                this.liveInterval = null;
-            }
-            
-            // Reset announcement flag
-            this.hasAnnouncedMode = false;
-        }
+        // Start analyzing after a delay
+        setTimeout(() => {
+            this.analyzeFrame();
+        }, 1500);
+        
+        // Then analyze every 5 seconds
+        this.liveInterval = setInterval(() => {
+            this.analyzeLiveFrame();
+        }, 5000);
     }
 
     autoStart() {
@@ -753,22 +725,12 @@ Describe in English with clear, direct language suitable for someone who cannot 
         const lowerCommand = command.toLowerCase();
         
         if (lowerCommand.includes('help')) {
-            this.speak('You can ask me questions about what you see. Say things like: What\'s in front of me? Are there any obstacles? What color is that? Or describe the room.');
+            this.speak('You can ask me any question. About what you see, general knowledge, or anything else. Just ask!');
             return;
         }
         
         if (lowerCommand.includes('stop') || lowerCommand.includes('quiet')) {
             this.stopAllAudio();
-            if (this.liveMode) {
-                this.toggleLiveMode();
-            }
-            return;
-        }
-        
-        if (lowerCommand.includes('start') && lowerCommand.includes('live')) {
-            if (!this.liveMode) {
-                this.toggleLiveMode();
-            }
             return;
         }
         
