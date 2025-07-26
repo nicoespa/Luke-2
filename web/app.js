@@ -62,7 +62,7 @@ class BlindVisionApp {
     async startCamera() {
         try {
             console.log('Starting camera...');
-            this.speak('Starting camera. Please allow camera permissions when prompted.');
+            // Don't speak here - already spoken in autoStart
             
             // Configure camera constraints for mobile devices
             const constraints = {
@@ -79,12 +79,11 @@ class BlindVisionApp {
             
             console.log('Camera started successfully');
             this.updateStatus('Camera active', 'ready');
-            this.speak('Camera active. Starting live mode.');
             
-            // Auto-start live mode for blind users
+            // Auto-start live mode for blind users after a delay
             setTimeout(() => {
                 this.toggleLiveMode();
-            }, 1000);
+            }, 2000); // Increased delay to avoid overlap
             
         } catch (error) {
             console.error('Camera error:', error);
@@ -139,13 +138,15 @@ class BlindVisionApp {
         
         if (this.liveMode) {
             console.log('Live mode activated');
-            this.speak('Live mode activated. I will describe your surroundings.');
+            this.speak('Live mode active.');
             this.updateStatus('Live mode active', 'analyzing');
             
-            // Start analyzing immediately
-            this.analyzeFrame();
+            // Start analyzing after a delay to let speech finish
+            setTimeout(() => {
+                this.analyzeFrame();
+            }, 1500);
             
-            // Then analyze every 3 seconds
+            // Then analyze every 5 seconds
             this.liveInterval = setInterval(() => {
                 this.analyzeLiveFrame();
             }, 5000); // Increased to 5 seconds to allow time for speech
@@ -164,8 +165,11 @@ class BlindVisionApp {
 
     autoStart() {
         console.log('Auto-starting app for blind users...');
-        this.speak('BlindVision Assistant starting. Please allow camera permissions.');
-        this.startCamera();
+        this.speak('BlindVision Assistant ready. Please allow camera permissions.');
+        // Delay camera start to avoid overlapping speech
+        setTimeout(() => {
+            this.startCamera();
+        }, 2000);
     }
 
     async speak(text) {
@@ -174,11 +178,19 @@ class BlindVisionApp {
         // Don't start new speech if already playing
         if (this.isPlaying) {
             console.log('Already playing audio, skipping new speech');
+            // Add to queue instead of skipping
+            this.speechQueue.push(text);
             return;
         }
         
+        // Set isPlaying immediately to prevent race conditions
+        this.isPlaying = true;
+        
         // Stop any ongoing audio before starting new speech
         this.stopAllAudio();
+        
+        // Keep isPlaying true after stopAllAudio
+        this.isPlaying = true;
         
         // Wait a moment to ensure all audio is stopped
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -196,6 +208,14 @@ class BlindVisionApp {
         } else {
             console.log('No ElevenLabs API key found. Using browser speech synthesis.');
             this.speakWithBrowser(text);
+        }
+        
+        // Process any queued speech
+        if (this.speechQueue.length > 0) {
+            const nextText = this.speechQueue.shift();
+            setTimeout(() => {
+                this.speak(nextText);
+            }, 100);
         }
     }
 
@@ -236,14 +256,8 @@ class BlindVisionApp {
     async speakWithElevenLabs(text) {
         console.log('ElevenLabs speech function called');
         
-        // Don't start if already playing
-        if (this.isPlaying) {
-            console.log('Already playing, skipping ElevenLabs speech');
-            return;
-        }
-        
-        // Stop any existing audio before starting
-        this.stopAllAudio();
+        // isPlaying is already set by speak() function
+        // Don't need to check again
         
         try {
             const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${this.elevenLabsVoiceId}`, {
@@ -294,6 +308,14 @@ class BlindVisionApp {
                 this.isPlaying = false;
                 this.currentAudio = null;
                 URL.revokeObjectURL(audioUrl);
+                
+                // Process queued speech
+                if (this.speechQueue.length > 0) {
+                    const nextText = this.speechQueue.shift();
+                    setTimeout(() => {
+                        this.speak(nextText);
+                    }, 500);
+                }
             };
             
             audio.onerror = (error) => {
@@ -358,10 +380,20 @@ class BlindVisionApp {
             
             utterance.onend = () => {
                 console.log('Browser speech ended');
+                this.isPlaying = false;
+                
+                // Process queued speech
+                if (this.speechQueue.length > 0) {
+                    const nextText = this.speechQueue.shift();
+                    setTimeout(() => {
+                        this.speak(nextText);
+                    }, 500);
+                }
             };
             
             utterance.onerror = (event) => {
                 console.error('Browser speech error:', event.error);
+                this.isPlaying = false;
             };
             
             speechSynthesis.speak(utterance);
