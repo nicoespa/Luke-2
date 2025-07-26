@@ -59,10 +59,12 @@ class BlindVisionApp {
         
         console.log('Elements initialized');
         
-        // Start continuous listening after a delay
-        setTimeout(() => {
-            this.startContinuousListening();
-        }, 3000);
+        // Start continuous listening after a delay (only if speech recognition is available)
+        if (this.recognition) {
+            setTimeout(() => {
+                this.startContinuousListening();
+            }, 3000);
+        }
     }
 
     bindEvents() {
@@ -70,18 +72,28 @@ class BlindVisionApp {
     }
     
     initializeSpeechRecognition() {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            console.log('Speech recognition not supported');
+        // Check for speech recognition support
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            console.error('Speech recognition not supported in this browser');
+            this.speak('Sorry, speech recognition is not supported in your browser. Please use Chrome or Safari.');
             return;
         }
         
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        this.recognition = new SpeechRecognition();
+        try {
+            this.recognition = new SpeechRecognition();
+        } catch (error) {
+            console.error('Failed to initialize speech recognition:', error);
+            this.speak('Failed to initialize speech recognition.');
+            return;
+        }
         
         // Configure recognition
         this.recognition.continuous = true;
         this.recognition.interimResults = true;
         this.recognition.lang = 'en-US';
+        this.recognition.maxAlternatives = 1;
         
         this.recognition.onstart = () => {
             console.log('Speech recognition started');
@@ -147,14 +159,25 @@ class BlindVisionApp {
     async startCamera() {
         try {
             console.log('Starting camera...');
-            // Don't speak here - already spoken in autoStart
+            
+            // Check if we have camera permissions first (mobile browsers)
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+                    console.log('Camera permission status:', cameraPermission.state);
+                } catch (e) {
+                    console.log('Cannot query camera permissions:', e);
+                }
+            }
             
             // Configure camera constraints for mobile devices
+            // Mobile-friendly camera constraints
             const constraints = {
                 video: {
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
-                    facingMode: 'environment' // Use rear camera on mobile
+                    width: { ideal: 1280, max: 1920 },
+                    height: { ideal: 720, max: 1080 },
+                    facingMode: { ideal: 'environment' }, // Prefer rear camera
+                    aspectRatio: { ideal: 16/9 }
                 },
                 audio: false
             };
@@ -217,7 +240,16 @@ class BlindVisionApp {
 
     autoStart() {
         console.log('Auto-starting app for blind users...');
-        this.speak('BlindVision Assistant ready. Just speak to ask me questions.');
+        
+        // Detect if on mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            this.speak('BlindVision Assistant ready. Tap anywhere to allow camera and microphone access.');
+        } else {
+            this.speak('BlindVision Assistant ready. Just speak to ask me questions.');
+        }
+        
         // Delay camera start to avoid overlapping speech
         setTimeout(() => {
             this.startCamera();
@@ -600,10 +632,17 @@ Describe in English with clear, direct language suitable for someone who cannot 
             console.log('Continuous listening started');
         } catch (error) {
             console.error('Failed to start recognition:', error);
-            // Retry after a delay
-            setTimeout(() => {
-                this.startContinuousListening();
-            }, 2000);
+            
+            // Check if it's because recognition is already started
+            if (error.message && error.message.includes('already started')) {
+                console.log('Recognition already running');
+                this.isListening = true;
+            } else {
+                // Retry after a delay
+                setTimeout(() => {
+                    this.startContinuousListening();
+                }, 2000);
+            }
         }
     }
     
@@ -632,6 +671,12 @@ Describe in English with clear, direct language suitable for someone who cannot 
             this.recognition.start();
         } catch (error) {
             console.error('Failed to start recognition:', error);
+            
+            // On mobile, speech recognition might need user interaction
+            if (error.name === 'NotAllowedError') {
+                console.log('Microphone permission denied');
+                this.speak('Please allow microphone access to use voice commands.');
+            }
         }
     }
     
@@ -737,6 +782,12 @@ Always provide helpful, direct answers about what you observe in the image.`
 
 // Initialize app when page loads
 document.addEventListener('DOMContentLoaded', async () => {
+    // Check if we're on HTTPS (required for camera/mic on mobile)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        console.error('HTTPS required for camera/microphone access');
+        document.body.innerHTML = '<div style="padding: 20px; text-align: center; font-family: Arial;"><h2>HTTPS Required</h2><p>This app requires HTTPS to access camera and microphone. Please use: <br><strong>' + location.href.replace('http:', 'https:') + '</strong></p></div>';
+        return;
+    }
     // Wait for environment variables to load
     if (window.envLoaded) {
         await window.envLoaded;
