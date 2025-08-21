@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlindVision Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #app {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #camera {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #44ff44;
+            border: 3px solid white;
+            cursor: pointer;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #44ff44;
+            color: #000;
+        }
+        
+        .btn-secondary {
+            background: #666;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        #question-input {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.9);
+            font-size: 16px;
+            display: none;
+        }
+        
+        #response {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .analyzing {
+            background: #ffaa00 !important;
+        }
+        
+        .speaking {
+            background: #ff4444 !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <video id="camera" autoplay playsinline></video>
+        <div id="status" onclick="openSettings()"></div>
+        
+        <div id="controls">
+            <button class="btn btn-primary" onclick="captureAndAsk()">Ask Question</button>
+            <button class="btn btn-secondary" onclick="toggleInput()">Type Question</button>
+        </div>
+        
+        <input type="text" id="question-input" placeholder="What do you want to know?" 
+               onkeypress="handleKeyPress(event)">
+        
+        <div id="response"></div>
+    </div>
+
+    <script>
+        let stream = null;
+        let apiKey = localStorage.getItem('openaiKey') || '';
+        
+        // Initialize camera
+        async function initCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                document.getElementById('camera').srcObject = stream;
+                
+                if (!apiKey || apiKey === '' || apiKey === 'your_openai_api_key_here') {
+                    showResponse('Please set your OpenAI API key by clicking the status indicator (top right)');
+                } else {
+                    showResponse('BlindVision Assistant ready! Click "Ask Question" to start.');
+                }
+            } catch (error) {
+                showResponse('Camera access denied. Please allow camera permissions and refresh.');
+            }
+        }
+        
+        function openSettings() {
+            const key = prompt('Enter your OpenAI API Key:', apiKey);
+            if (key !== null) {
+                apiKey = key;
+                localStorage.setItem('openaiKey', apiKey);
+                showResponse('API key saved successfully!');
+            }
+        }
+        
+        function toggleInput() {
+            const input = document.getElementById('question-input');
+            input.style.display = input.style.display === 'none' ? 'block' : 'none';
+            if (input.style.display === 'block') {
+                input.focus();
+            }
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                const question = event.target.value.trim();
+                if (question) {
+                    captureAndAsk(question);
+                    event.target.value = '';
+                    event.target.style.display = 'none';
+                }
+            }
+        }
+        
+        async function captureAndAsk(question = null) {
+            if (!apiKey || apiKey === '' || apiKey === 'your_openai_api_key_here') {
+                openSettings();
+                return;
+            }
+            
+            if (!question) {
+                question = prompt('What would you like to know about what you see?');
+                if (!question) return;
+            }
+            
+            const status = document.getElementById('status');
+            const response = document.getElementById('response');
+            
+            try {
+                // Set analyzing status
+                status.className = 'analyzing';
+                showResponse('Analyzing image...');
+                
+                // Capture image
+                const canvas = document.createElement('canvas');
+                const video = document.getElementById('camera');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Send to OpenAI
+                const result = await callOpenAI(imageData, question);
+                
+                status.className = 'speaking';
+                showResponse(result);
+                speak(result);
+                
+                setTimeout(() => {
+                    status.className = '';
+                }, 3000);
+                
+            } catch (error) {
+                status.className = '';
+                showResponse('Error: ' + error.message);
+            }
+        }
+        
+        async function callOpenAI(imageData, question) {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a visual assistant for blind users. Provide concise, actionable descriptions focusing on navigation, safety, and spatial awareness. Be direct and specific.'
+                        },
+                        {
+                            role: 'user',
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: question
+                                },
+                                {
+                                    type: 'image_url',
+                                    image_url: { 
+                                        url: imageData,
+                                        detail: 'low'
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens: 150,
+                    temperature: 0.3
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+        
+        function showResponse(text) {
+            const response = document.getElementById('response');
+            response.textContent = text;
+            response.style.display = 'block';
+            
+            setTimeout(() => {
+                response.style.display = 'none';
+            }, 8000);
+        }
+        
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                speechSynthesis.speak(utterance);
+            }
+        }
+        
+        // Initialize on load
+        window.onload = initCamera;
+        
+        // Touch to stop speech
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'camera') {
+                speechSynthesis.cancel();
+            }
+        });
+    </script>
+</body>
+</html>
